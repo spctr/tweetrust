@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>TweeTrust</title>
+    <script src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+  </head>
+<style>
+*{
+     margin:0px auto;
+}
+
+html, body{
+     text-align:center;
+}
+
+.loader {
+    border: 3px solid #f3f3f3; /* Light grey */
+    border-top: 3px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 15px;
+    height: 15px;
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+table {
+    font-family: arial, sans-serif;
+    border-collapse: collapse;
+    width: 30%;
+}
+
+td, th {
+    border: 1px solid #dddddd;
+    text-align: left;
+    padding: 8px;
+}
+
+tr:nth-child(even) {
+    background-color: #dddddd;
+}
+</style>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+    class ExtRes extends React.Component{
+    	    	 constructor(props) {
+		super(props);
+		this.state = { 
+			source_str:"",
+			first_tweet:""
+		};
+	}
+	componentDidMount() {
+		this.setState({source_str:this.props.resstr});
+	}
+	searchStr=()=>{
+	if(this.state.first_tweet!="")return;
+	let loader=( <div class="loader"></div> );
+		this.setState({first_tweet:loader});
+		let today=new Date();
+		let lastweek=new Date();
+		let high_t;
+		let low_t;
+		let mid_t;
+		lastweek.setDate(lastweek.getDate()-8);
+		
+
+	        fetch('http://twitter.deneyi.net/searchtweets.php?q=twitter').then(function(response) { 					
+			return response.json();
+	  	}).then(resp => {
+	  	if("count" in resp){
+		if(resp.count>0){
+			
+			high_t=resp.tweet;
+			fetch('http://twitter.deneyi.net/searchtweets.php?q=twitter&until='+lastweek.getFullYear()+'-'+(lastweek.getMonth()+1)+'-'+lastweek.getDate()).then(function(response){  					
+			return response.json();
+	  	}).then(resp => {
+	  	if("count" in resp){
+		if(resp.count>0){
+			low_t=resp.tweet;
+			mid_t=(Number(low_t)+Number(high_t))/2;
+			this.findStr(this.state.source_str,low_t,high_t,mid_t.toString());
+		}}else
+		{
+		        this.searchStr();
+	        	return;
+		}
+		
+	        });
+			
+		
+	        }}
+	        else{
+	        	this.searchStr();
+	        	return;
+	        }}
+	        );
+		
+	}
+	findStr=(string,low_t,high_t,mid_t)=>{
+	if(Number(low_t)<Number(mid_t))
+	{
+	//console.log(low_t+" "+mid_t+" " +high_t);
+	
+
+		fetch('http://twitter.deneyi.net/searchtweets.php?q='+string+'&since_id='+low_t+'&max_id='+mid_t).then(function(response) { 					
+			  return response.json();
+	  		}).then(resp => {
+			if("count" in resp){
+	  		//console.log(resp.count);
+		if(resp.count==0){
+			let new_mid=(Number(mid_t)+Number(high_t))/2;
+			this.findStr(string,mid_t,high_t,new_mid.toString());
+			return;
+		}
+		if(resp.count>1){
+			let new_mid=(Number(mid_t)+Number(low_t))/2;
+			this.findStr(string,low_t,mid_t,new_mid.toString());
+			return;
+		}
+		let link=(<a href={"https://www.twitter.com/twee_trust/status/"+resp.tweet}> First Tweet </a>);
+		this.setState({first_tweet:link});
+	        }
+	        else{
+	        	console.log(resp.error);
+	                this.findStr(string,low_t,high_t,mid_t);
+	        	return;
+	        }
+	        }
+	        );
+	        
+	}else{
+		this.setState({first_tweet:"Source not found"});
+	}	
+	
+}
+	render(){
+	return(
+		<tr onClick={this.searchStr}>
+		<td>
+		{this.state.source_str}
+		</td>
+		<td>
+		{this.state.first_tweet}
+		</td>
+		</tr>
+		);
+	}
+    }
+    class Image extends React.Component{
+    	 constructor(props) {
+		super(props);
+		this.state = { 
+			source_url:"",
+		};
+
+	}
+    	render(){    	    	   	   	
+    		return(
+    		<tr>
+    			<td>
+    			<img src={this.props.img} width="300" />
+    			</td>
+    			<td>
+    			{this.state.source_url}
+    			</td>
+    		</tr>
+    		);
+    	}
+
+    	componentDidMount() {
+    		fetch('http://twitter.deneyi.net/addimages.php?tweet='+this.props.tweet+'&image='+this.props.img).then(function(response) {
+
+	    		return response.json();
+  		}).then(resp => {			
+	               //console.log(resp);
+	               
+              	});
+              	fetch('http://twitter.deneyi.net/getimages.php?image='+this.props.img).then(function(response) {
+ //console.log(response);
+	    		return response.json();
+  		}).then(resp => {			
+  			//if(response)
+	               //console.log(resp);
+	               if("status" in resp){
+	               	if(resp["status"]==755){
+	               		this.setState({source_url:"This image was not found online."});
+	               		return;
+	               	}
+	               	if(resp["status"]==710){
+	               	
+	               	this.setState({source_url:resp["statustext"]});
+	               	return;
+	               	}
+	               }
+	               if(Object.keys(resp).length===0){
+	               	this.setState({source_url:"Images are being searched please reload."});
+	               	return;
+	               }
+	               let pages= resp[Object.keys(resp)[0]];
+	               let page=pages[Object.keys(pages)[0]];
+	               let chosen=page[Object.keys(page)[0]];
+	               //console.log(chosen);
+	               let txturl=chosen["page"]+":"+chosen["usage-image"];
+	               this.setState({source_url:txturl});
+              	});
+
+       	} 	
+    }
+    
+    class Trends extends React.Component{  
+
+    shouldComponentUpdate(nextProps, nextState){
+          if(nextState.trends!=this.state.trends)return true;
+          return false;
+    }
+    componentDidMount() {
+    fetch('http://twitter.deneyi.net/listtrends.php').then(function(response) {
+    if (response.status >= 400) {
+      throw new Error("Bad response from server");
+    }
+    return response.json();
+  }).then(resp => {			
+               //console.log(resp);
+               this.setState({trends:resp});
+               });
+
+    } 
+
+		constructor(props) {
+		super(props);
+		this.state = {
+						trends:[]
+		};
+
+	  }
+        render(){
+        let items=(<tr></tr>);
+        	if(this.state.trends.length>0)
+               items=this.state.trends.map((trend) => (
+        <tr>
+          <td>{trend.name}</td>
+          <td>{trend.url}</td>
+          <td>{trend.sd}</td>
+</tr>
+    ));
+               return(
+               <div> Fast spreading trends in Istanbul(updated every 15 minutes)
+               <table>
+               <tbody>
+  <tr>
+    <th>Trend</th>
+    <th>URL</th>
+    <th>SD</th>
+  </tr>
+{items}
+</tbody>
+</table>
+</div>
+               );
+        }
+
+    }
+    	class Tweet extends React.Component{
+    	componentDidMount() {
+	    	var url_string = window.location.href; //window.location.href
+		var url = new URL(url_string);
+		var c = url.searchParams.get("c");
+		var t= url.searchParams.get("t");
+		if(c!=null){
+				  		  fetch('http://twitter.deneyi.net/getcomment.php?comment='+c).then(function(response) {
+
+    return response.json();
+  }).then(resp => {			
+		let t_id=resp.tweet;
+		let load_c=resp.comment;
+	  	this.setState({loaded_comment:load_c});
+	  	this.onTweet(t_id);
+	  });
+		}
+		if(t!=null){
+		this.onTweet(t);
+		}
+	}
+    	   constructor(props) {
+		super(props);
+		this.state = {tweet_id: 0,
+				hashtags:[],
+				urls:[],
+				images:[],
+				loaded_comment:"",
+				text:""
+				};
+
+	  }
+	  onComment=(comment)=>{
+	  		  fetch('http://twitter.deneyi.net/createcomment.php?tweet='+this.state.tweet_id+"&comment="+comment).then(function(response) {
+    if (response.status >= 400) {
+      throw new Error("Bad response from server");
+    }
+    return response.json();
+  }).then(resp => {			
+		window.location.href = "http://twitter.deneyi.net/index.html?c="+resp.message;
+	  
+	  });
+	  }
+	  loadTweet=(tweetid)=>{
+	  	window.location.href = "http://twitter.deneyi.net/index.html?t="+tweetid;
+	  }
+	  onTweet=(tweetid)=>{
+	  
+	  fetch('http://twitter.deneyi.net/gettweet.php?q='+tweetid).then(function(response) {
+    if (response.status >= 400) {
+      throw new Error("Bad response from server");
+    }
+    return response.json();
+  }).then(resp => {			
+               //console.log(resp);
+               let photolist=[];
+               //console.log(photolist);
+               if("extended_entities" in resp)
+               if("media" in resp["extended_entities"])
+               for( let p of resp.extended_entities.media){
+                		if(p.type=="photo")photolist.push(p);
+               }
+               if(photolist.length==0)if("media" in resp["entities"])
+               for (let p of resp.entities.media) {
+			if(p.type=="photo")photolist.push(p);
+               }
+               this.setState({tweet_id:tweetid,hashtags:resp.entities.hashtags,urls:resp.entities.urls,images:photolist,text:resp.text});
+               });
+	  }
+
+	  render(){
+
+	  	let item;
+	  	let comment;
+	  	let tags;
+	  	let urls;
+	  	if(this.state.tweet_id==0)item=(<div><NameForm gettweet={this.loadTweet} />
+	  	<p></p>
+	  	<p></p>
+	  	<Trends />
+	  	</div>
+	  	)
+	  	else{
+	  		
+	  		if(this.state.loaded_comment=="")comment=(<CommentForm sendComment={this.onComment} />);
+	  		else {
+	  		let cc=this.state.loaded_comment;
+	  		comment=("Comment: "+cc);
+	  		}
+	  		
+	  		 let tags=(<tr></tr>);
+	  	         let items=(<tr></tr>);
+	  	         let urls=(<tr></tr>);
+        	if(this.state.images.length>0)
+               items=this.state.images.map((image) => (
+		<Image tweet={this.state.tweet_id} img={image.media_url}/>
+    		));
+    		else items=(<tr>No Twitter images found on this tweet.</tr>);
+    		if(this.state.hashtags.length>0)
+    		tags=this.state.hashtags.map((tag)=>(
+    		<ExtRes resstr={tag.text} />
+    		));
+    		else tags=(<tr>No Hashtags were on this tweet.</tr>);
+    		if(this.state.urls.length>0){
+    		urls=this.state.urls.map((url)=>(
+    		<ExtRes resstr={url.expanded_url} />
+    		));
+    		}
+    		else urls=(<tr>No URLs were on this tweet.</tr>);
+               return(
+               <div> 
+               
+<a href={"https://www.twitter.com/twee_trust/status/"+this.state.tweet_id}>Current Tweet:</a>{this.state.text}
+
+                              <p></p>
+               <p></p>
+               {comment}
+               <p></p>
+               <p></p>
+               Images in this tweet
+               <table>
+               <tbody>
+		  <tr>
+		    <th>Image</th>
+		    <th>Source</th>
+		  </tr>
+			{items}
+			</tbody>
+		</table>
+		
+		<p></p>
+		Hashtags in this tweet(click one to find first tweet)
+               <table>
+               <tbody>
+		  <tr>
+		    <th>Hashtag</th>
+		    <th>Source</th>
+		  </tr>
+			{tags}
+			</tbody>
+		</table>
+		
+				URLs in this tweet(click one to find first tweet)
+               <table>
+               <tbody>
+		  <tr>
+		    <th>URL</th>
+		    <th>Source</th>
+		  </tr>
+			{urls}
+			</tbody>
+		</table>
+		
+		</div>
+               );
+	  	
+	  	
+	  	 
+	  	 }
+	  	return item;
+	  }
+    	}
+	class NameForm extends React.Component {
+	  constructor(props) {
+		super(props);
+		this.state = {value: ''};
+
+		this.handleChange = this.handleChange.bind(this);
+		this.handleSubmit = this.handleSubmit.bind(this);
+	  }
+
+	  handleChange(event) {
+		this.setState({value: event.target.value});
+	  }
+
+	  handleSubmit(event) {
+		//alert('A name was submitted: ' + this.state.value);
+		event.preventDefault();
+		this.props.gettweet(this.state.value);
+	  }
+
+	  render() {
+		return (
+		  <form onSubmit={this.handleSubmit}>
+			<label>
+			  Tweet ID:
+			  <input type="text" value={this.state.value} onChange={this.handleChange} />
+			</label>
+			<input type="submit" value="Get Tweet" />
+		  </form>
+		);
+	  }
+	}
+	class CommentForm extends React.Component {
+	  constructor(props) {
+		super(props);
+		this.state = {value: ''};
+
+		this.handleChange = this.handleChange.bind(this);
+		this.handleSubmit = this.handleSubmit.bind(this);
+	  }
+
+	  handleChange(event) {
+		this.setState({value: event.target.value});
+	  }
+
+	  handleSubmit(event) {
+		event.preventDefault();
+		this.props.sendComment(this.state.value);
+	  }
+
+	  render() {
+		return (
+		  <form onSubmit={this.handleSubmit}>
+			<label>
+			  Comment:
+			  <input type="text" value={this.state.value} onChange={this.handleChange} />
+			</label>
+			<input type="submit" value="Send Comment" />
+		  </form>
+		);
+	  }
+	}
+
+function App() {
+  return (
+    <div>
+    <a href="http://twitter.deneyi.net" > TweeTrust Homepage </a>
+    <p></p>
+    <p></p>
+      <Tweet />
+      
+    </div>
+  );
+}
+      ReactDOM.render(        
+		<App />,
+        document.getElementById('root')
+      );
+
+    </script>
+  </body>
+</html>
