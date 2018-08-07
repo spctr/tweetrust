@@ -3,7 +3,7 @@ require "./apivars.php";
 $conn = new mysqli($servername, $username, $password, $dbname);
 header('Content-type: application/json');
 
-$sql="SELECT * FROM TRENDS WHERE CURRENT=1 AND SD>0 ORDER BY SD DESC";
+$sql="SELECT NAME,URL,SD FROM TRENDS WHERE CURRENT=1 AND SD>0 ORDER BY SD DESC";
 if(!$result=$conn->query($sql))echo $conn->error();
 if ($result->num_rows > 0) {
 		    $trends=array();
